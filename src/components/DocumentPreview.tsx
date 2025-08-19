@@ -9,7 +9,7 @@ interface DocumentPreviewProps {
 }
 
 const DocumentPreview: React.FC<DocumentPreviewProps> = ({ document, diffs, title }) => {
-  // Use original content for preview, diff-highlighted content for comparison
+  // Always use original content for preview, diff-highlighted content for comparison
   const content = diffs ? renderHtmlDifferences(diffs) : document.originalHtmlContent;
 
 	return (
