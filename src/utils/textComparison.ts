@@ -46,6 +46,15 @@ const escapeHtml = (text: string): string => {
   return div.innerHTML;
 };
 
+const cleanDiffHighlighting = (html: string): string => {
+  // Remove diff highlighting spans and divs
+  return html
+    .replace(/<span class="diff-insert"[^>]*>(.*?)<\/span>/g, '$1')
+    .replace(/<span class="diff-delete"[^>]*>(.*?)<\/span>/g, '$1')
+    .replace(/<div class="diff-insert-block"[^>]*>(.*?)<\/div>/g, '$1')
+    .replace(/<div class="diff-delete-block"[^>]*>(.*?)<\/div>/g, '$1');
+};
+
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
   // Clean any existing diff highlighting from previous comparisons
   const cleanLeftHtml = cleanDiffHighlighting(leftHtml);
