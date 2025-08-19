@@ -191,6 +191,42 @@
   border-radius: 3px;
 }
 
+/* Block-level diff highlighting */
+.word-document-preview .diff-insert-block {
+  background-color: #d4edda;
+  border-left: 4px solid #28a745;
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+}
+
+.word-document-preview .diff-delete-block {
+  background-color: #f8d7da;
+  border-left: 4px solid #dc3545;
+  padding: 8px;
+  margin: 4px 0;
+  border-radius: 4px;
+  opacity: 0.8;
+}
+
+/* Improved inline diff styles */
+.word-document-preview .diff-insert {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  padding: 1px 3px;
+  border-radius: 2px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.word-document-preview .diff-delete {
+  background-color: #f5c6cb;
+  color: #721c24;
+  padding: 1px 3px;
+  border-radius: 2px;
+  text-decoration: line-through;
+  font-weight: 500;
+}
 /* Page-like appearance */
 .word-document-preview {
   background: white;

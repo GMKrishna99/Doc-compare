@@ -2,8 +2,8 @@ import { diffWords, diffSentences, diffArrays } from 'diff';
 import { DiffResult, ComparisonResult } from '../types';
 
 export const compareDocuments = (leftText: string, rightText: string): ComparisonResult => {
-  // Use sentence-based diff for better readability in formatted documents
-  const diffs = diffSentences(leftText, rightText);
+  // Use word-based diff for more granular comparison
+  const diffs = diffWords(leftText, rightText);
   
   const leftDiffs: DiffResult[] = [];
   const rightDiffs: DiffResult[] = [];
@@ -12,11 +12,9 @@ export const compareDocuments = (leftText: string, rightText: string): Compariso
   diffs.forEach(diff => {
     if (diff.added) {
       rightDiffs.push({ type: 'insert', content: diff.value });
-      leftDiffs.push({ type: 'equal', content: '' });
       summary.additions++;
     } else if (diff.removed) {
       leftDiffs.push({ type: 'delete', content: diff.value });
-      rightDiffs.push({ type: 'equal', content: '' });
       summary.deletions++;
     } else {
       leftDiffs.push({ type: 'equal', content: diff.value });
@@ -48,123 +46,167 @@ const escapeHtml = (text: string): string => {
   return div.innerHTML;
 };
 
-// Enhanced comparison for HTML content
+// Enhanced comparison for HTML content with word-level precision
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
-  // Parse block-level HTML to preserve structure
-  const leftBlocks = parseHtmlBlocks(leftHtml);
-  const rightBlocks = parseHtmlBlocks(rightHtml);
-
-  const diff = diffArrays(
-    leftBlocks.map(b => b.text),
-    rightBlocks.map(b => b.text)
-  );
-
+  // Extract structured text while preserving HTML elements
+  const leftStructure = extractStructuredContent(leftHtml);
+  const rightStructure = extractStructuredContent(rightHtml);
+  
+  // Compare the structured content at word level
   const leftDiffs: DiffResult[] = [];
   const rightDiffs: DiffResult[] = [];
   let summary = { additions: 0, deletions: 0, changes: 0 };
 
-  let leftIndex = 0;
-  let rightIndex = 0;
-
-  diff.forEach(part => {
-    const values = part.value as string[];
-    const length = values.length;
-
-    if (part.added) {
-      for (let i = 0; i < length; i++) {
-        const block = rightBlocks[rightIndex++];
-        rightDiffs.push({ type: 'insert', content: block.html });
-        leftDiffs.push({ type: 'equal', content: '' });
-        summary.additions++;
-      }
-    } else if (part.removed) {
-      for (let i = 0; i < length; i++) {
-        const block = leftBlocks[leftIndex++];
-        leftDiffs.push({ type: 'delete', content: block.html });
-        rightDiffs.push({ type: 'equal', content: '' });
-        summary.deletions++;
-      }
-    } else {
-      // equal blocks on both sides, preserve original HTML for each side
-      for (let i = 0; i < length; i++) {
-        const leftBlock = leftBlocks[leftIndex++];
-        const rightBlock = rightBlocks[rightIndex++];
-        leftDiffs.push({ type: 'equal', content: leftBlock.html });
-        rightDiffs.push({ type: 'equal', content: rightBlock.html });
+  // Process each HTML element separately for more precise comparison
+  const maxLength = Math.max(leftStructure.length, rightStructure.length);
+  
+  for (let i = 0; i < maxLength; i++) {
+    const leftElement = leftStructure[i];
+    const rightElement = rightStructure[i];
+    
+    if (!leftElement && rightElement) {
+      // Element added in right document
+      rightDiffs.push({ type: 'insert', content: rightElement.html });
+      leftDiffs.push({ type: 'equal', content: '' });
+      summary.additions++;
+    } else if (leftElement && !rightElement) {
+      // Element removed from left document
+      leftDiffs.push({ type: 'delete', content: leftElement.html });
+      rightDiffs.push({ type: 'equal', content: '' });
+      summary.deletions++;
+    } else if (leftElement && rightElement) {
+      // Compare text content of elements at word level
+      if (leftElement.text === rightElement.text) {
+        // Same content, keep original HTML
+        leftDiffs.push({ type: 'equal', content: leftElement.html });
+        rightDiffs.push({ type: 'equal', content: rightElement.html });
+      } else {
+        // Different content, perform word-level diff
+        const wordDiffs = diffWords(leftElement.text, rightElement.text);
+        
+        const leftWordDiffs: string[] = [];
+        const rightWordDiffs: string[] = [];
+        
+        wordDiffs.forEach(diff => {
+          if (diff.added) {
+            rightWordDiffs.push(`<span class="diff-insert">${escapeHtml(diff.value)}</span>`);
+            summary.additions++;
+          } else if (diff.removed) {
+            leftWordDiffs.push(`<span class="diff-delete">${escapeHtml(diff.value)}</span>`);
+            summary.deletions++;
+          } else {
+            leftWordDiffs.push(escapeHtml(diff.value));
+            rightWordDiffs.push(escapeHtml(diff.value));
+          }
+        });
+        
+        // Reconstruct HTML with word-level highlighting
+        const leftHighlighted = reconstructElementWithDiffs(leftElement, leftWordDiffs.join(''));
+        const rightHighlighted = reconstructElementWithDiffs(rightElement, rightWordDiffs.join(''));
+        
+        leftDiffs.push({ type: 'equal', content: leftHighlighted });
+        rightDiffs.push({ type: 'equal', content: rightHighlighted });
       }
     }
-  });
+  }
 
   summary.changes = summary.additions + summary.deletions;
 
   return { leftDiffs, rightDiffs, summary };
 };
 
-const extractTextWithStructure = (html: string): string => {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-  
-  // Preserve paragraph breaks and structure
-  const elements = tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th, div');
-  const textParts: string[] = [];
-  
-  elements.forEach(element => {
-    const text = element.textContent?.trim();
-    if (text) {
-      textParts.push(text);
-    }
-  });
-  
-  return textParts.join('\n\n');
-};
-
-// Parse HTML into block-level units with both text and original HTML
-const parseHtmlBlocks = (html: string): { text: string; html: string }[] => {
+// Extract structured content preserving HTML elements
+const extractStructuredContent = (html: string): { text: string; html: string; tag: string }[] => {
   const container = document.createElement('div');
   container.innerHTML = html;
 
-  // Target common Word-like block elements
-  const elements = container.querySelectorAll(
-    'p, h1, h2, h3, h4, h5, h6, li, td, th, table, blockquote, ul, ol, img'
-  );
-
-  const blocks: { text: string; html: string }[] = [];
-
-  elements.forEach(el => {
-    const tagName = el.tagName.toLowerCase();
-    let text = (el.textContent || '').trim();
-
-    if (!text) {
-      if (tagName === 'img') {
-        const src = (el as HTMLImageElement).src || el.getAttribute('src') || '';
-        text = `IMG:${src}`;
-      } else if (tagName === 'table') {
-        text = 'TABLE';
+  const elements: { text: string; html: string; tag: string }[] = [];
+  
+  // Process all child nodes, including text nodes
+  const processNode = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.textContent?.trim();
+      if (text) {
+        elements.push({
+          text,
+          html: escapeHtml(text),
+          tag: 'text'
+        });
+      }
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element;
+      const tagName = element.tagName.toLowerCase();
+      
+      // For block elements, process as a unit
+      if (isBlockElement(tagName)) {
+        const text = element.textContent?.trim() || '';
+        elements.push({
+          text,
+          html: element.outerHTML,
+          tag: tagName
+        });
       } else {
-        text = tagName;
+        // For inline elements, process children
+        Array.from(node.childNodes).forEach(processNode);
       }
     }
+  };
 
-    blocks.push({ text, html: (el as HTMLElement).outerHTML });
-  });
+  Array.from(container.childNodes).forEach(processNode);
 
-  // Fallback to entire HTML if no blocks found
-  if (blocks.length === 0) {
-    const fallbackText = container.textContent?.trim() || '';
-    return [{ text: fallbackText, html }];
-  }
-
-  return blocks;
+  return elements;
 };
 
-// Render diffs where content is already HTML; preserve formatting
+const isBlockElement = (tagName: string): boolean => {
+  const blockElements = [
+    'p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'blockquote', 'pre', 'ul', 'ol', 'li', 'table',
+    'tr', 'td', 'th', 'thead', 'tbody', 'tfoot'
+  ];
+  return blockElements.includes(tagName);
+};
+
+// Reconstruct HTML element with word-level diffs
+const reconstructElementWithDiffs = (
+  element: { text: string; html: string; tag: string },
+  diffContent: string
+): string => {
+  if (element.tag === 'text') {
+    return diffContent;
+  }
+  
+  // Parse the original HTML to get the tag structure
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = element.html;
+  const originalElement = tempDiv.firstElementChild;
+  
+  if (!originalElement) {
+    return diffContent;
+  }
+  
+  // Clone the element and replace its text content with diff content
+  const newElement = originalElement.cloneNode(false) as Element;
+  newElement.innerHTML = diffContent;
+  
+  return newElement.outerHTML;
+};
+
+// Render diffs where content is already HTML with word-level highlighting
 export const renderHtmlDifferences = (diffs: DiffResult[]): string => {
   return diffs.map(diff => {
     switch (diff.type) {
       case 'insert':
-        return `<div class="diff-insert">${diff.content}</div>`;
+        // For insertions at the element level, wrap the entire element
+        if (diff.content.startsWith('<') && diff.content.endsWith('>')) {
+          return `<div class="diff-insert-block">${diff.content}</div>`;
+        }
+        return `<span class="diff-insert">${diff.content}</span>`;
       case 'delete':
-        return `<div class="diff-delete">${diff.content}</div>`;
+        // For deletions at the element level, wrap the entire element
+        if (diff.content.startsWith('<') && diff.content.endsWith('>')) {
+          return `<div class="diff-delete-block">${diff.content}</div>`;
+        }
+        return `<span class="diff-delete">${diff.content}</span>`;
       default:
         return diff.content;
     }
