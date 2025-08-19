@@ -47,11 +47,15 @@ const escapeHtml = (text: string): string => {
 };
 
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
+  // Clean any existing diff highlighting from previous comparisons
+  const cleanLeftHtml = cleanDiffHighlighting(leftHtml);
+  const cleanRightHtml = cleanDiffHighlighting(rightHtml);
+  
   // Parse HTML while preserving original structure
   const leftContainer = document.createElement('div');
   const rightContainer = document.createElement('div');
-  leftContainer.innerHTML = leftHtml;
-  rightContainer.innerHTML = rightHtml;
+  leftContainer.innerHTML = cleanLeftHtml;
+  rightContainer.innerHTML = cleanRightHtml;
   
   const leftDiffs: DiffResult[] = [];
   const rightDiffs: DiffResult[] = [];
@@ -258,6 +262,30 @@ const reconstructElementWithDiffs = (
   newElement.innerHTML = diffContent;
   
   return newElement.outerHTML;
+};
+
+// Clean any existing diff highlighting to ensure clean comparisons
+const cleanDiffHighlighting = (html: string): string => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Remove all diff highlighting spans and blocks
+  const diffElements = tempDiv.querySelectorAll('.diff-insert, .diff-delete, .diff-insert-block, .diff-delete-block');
+  diffElements.forEach(element => {
+    // Replace the diff element with its text content
+    const textNode = document.createTextNode(element.textContent || '');
+    element.parentNode?.replaceChild(textNode, element);
+  });
+  
+  // Clean up any empty elements that might have been left behind
+  const emptyElements = tempDiv.querySelectorAll('span:empty, div:empty');
+  emptyElements.forEach(element => {
+    if (element.textContent?.trim() === '') {
+      element.remove();
+    }
+  });
+  
+  return tempDiv.innerHTML;
 };
 
 // Render diffs where content is already HTML with word-level highlighting

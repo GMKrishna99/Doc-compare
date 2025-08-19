@@ -26,7 +26,11 @@ function App() {
 
   const handleCompareDocuments = useCallback(() => {
     if (leftDocument && rightDocument) {
-      const result = compareHtmlDocuments(leftDocument.htmlContent, rightDocument.htmlContent);
+      // Always use original, clean HTML content for comparison
+      const result = compareHtmlDocuments(
+        leftDocument.htmlContent, 
+        rightDocument.htmlContent
+      );
       setComparison(result);
       setViewMode('comparison');
     }

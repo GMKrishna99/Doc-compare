@@ -9,7 +9,9 @@ interface DocumentPreviewProps {
 }
 
 const DocumentPreview: React.FC<DocumentPreviewProps> = ({ document, diffs, title }) => {
-	const content = diffs ? renderHtmlDifferences(diffs) : document.htmlContent;
+  // Always use original document content for preview mode
+  // Only use diffs when explicitly showing comparison
+  const content = diffs ? renderHtmlDifferences(diffs) : document.htmlContent;
 
 	return (
 		<div className="h-full flex flex-col bg-white rounded-lg shadow-lg border border-gray-200">
