@@ -18,14 +18,20 @@ export const parseWordDocument = async (file: File): Promise<{ content: string; 
         "p[style-name='Quote'] => blockquote:fresh",
         "p[style-name='Intense Quote'] => blockquote.intense:fresh",
         "p[style-name='List Paragraph'] => p.list-paragraph:fresh",
+        "p[style-name='Normal'] => p:fresh",
+        "p[style-name='Body Text'] => p:fresh",
         "r[style-name='Strong'] => strong",
         "r[style-name='Emphasis'] => em",
         "r[style-name='Subtle Emphasis'] => em.subtle",
         "r[style-name='Intense Emphasis'] => strong.intense",
+        "r[style-name='Hyperlink'] => a",
         "table => table.word-table",
         "tr => tr",
         "td => td",
-        "th => th"
+        "th => th",
+        "b => strong",
+        "i => em",
+        "u => u"
       ],
       includeDefaultStyleMap: true,
       convertImage: mammoth.images.imgElement(function(image) {
@@ -36,36 +42,17 @@ export const parseWordDocument = async (file: File): Promise<{ content: string; 
         });
       }),
       ignoreEmptyParagraphs: false,
-      preserveEmptyParagraphs: true
+      preserveEmptyParagraphs: true,
+      transformDocument: mammoth.transforms.paragraph(function(element) {
+        // Preserve paragraph spacing and alignment
+        return element;
+      })
     };
     
     const result = await mammoth.convertToHtml({ arrayBuffer }, options);
     
-    // Extract plain text for comparison while preserving structure
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = result.value;
-    
-    // Better plain text extraction that preserves paragraph breaks
-    const textNodes: string[] = [];
-    const walker = document.createTreeWalker(
-      tempDiv,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-    
-    let node;
-    while (node = walker.nextNode()) {
-      const text = node.textContent?.trim();
-      if (text) {
-        textNodes.push(text);
-      }
-    }
-    
-    // Also preserve paragraph structure for better comparison
-    const paragraphs = Array.from(tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th'));
-    const structuredText = paragraphs.map(p => p.textContent?.trim()).filter(Boolean).join('\n\n');
-    
-    const plainText = structuredText || textNodes.join(' ') || tempDiv.textContent || tempDiv.innerText || '';
+    // Extract plain text while preserving paragraph structure
+    const plainText = extractPlainTextWithStructure(result.value);
     
     // Enhanced HTML with better styling
     const enhancedHtml = enhanceWordHtml(result.value);
@@ -80,11 +67,65 @@ export const parseWordDocument = async (file: File): Promise<{ content: string; 
   }
 };
 
+const extractPlainTextWithStructure = (html: string): string => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Process elements to preserve structure
+  const processElement = (element: Element): string => {
+    const tagName = element.tagName.toLowerCase();
+    const text = element.textContent?.trim() || '';
+    
+    // Add appropriate spacing based on element type
+    switch (tagName) {
+      case 'h1':
+      case 'h2':
+      case 'h3':
+      case 'h4':
+      case 'h5':
+      case 'h6':
+        return text ? `\n\n${text}\n` : '';
+      case 'p':
+        return text ? `${text}\n\n` : '\n';
+      case 'li':
+        return text ? `• ${text}\n` : '';
+      case 'br':
+        return '\n';
+      case 'td':
+      case 'th':
+        return text ? `${text}\t` : '';
+      case 'tr':
+        return '\n';
+      default:
+        return text;
+    }
+  };
+  
+  const elements = Array.from(tempDiv.querySelectorAll('*'));
+  let result = '';
+  
+  elements.forEach(element => {
+    if (!element.children.length) { // Only process leaf elements
+      result += processElement(element);
+    }
+  });
+  
+  return result.trim();
+};
+
 const enhanceWordHtml = (html: string): string => {
-  // Add Word-like styling to the HTML
+  // Clean up and enhance HTML for better Word-like appearance
+  let cleanedHtml = html
+    // Preserve line breaks and spacing
+    .replace(/\n\s*\n/g, '</p><p>')
+    // Ensure proper paragraph structure
+    .replace(/<p><\/p>/g, '<p>&nbsp;</p>')
+    // Fix empty paragraphs
+    .replace(/<p>\s*<\/p>/g, '<p>&nbsp;</p>');
+  
   const styledHtml = `
     <div class="word-document">
-      ${html}
+      ${cleanedHtml}
     </div>
   `;
   

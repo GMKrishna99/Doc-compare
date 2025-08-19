@@ -46,66 +46,54 @@ const escapeHtml = (text: string): string => {
   return div.innerHTML;
 };
 
-// Enhanced comparison for HTML content with word-level precision
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
-  // Extract structured text while preserving HTML elements
-  const leftStructure = extractStructuredContent(leftHtml);
-  const rightStructure = extractStructuredContent(rightHtml);
+  // Parse HTML while preserving original structure
+  const leftContainer = document.createElement('div');
+  const rightContainer = document.createElement('div');
+  leftContainer.innerHTML = leftHtml;
+  rightContainer.innerHTML = rightHtml;
   
-  // Compare the structured content at word level
   const leftDiffs: DiffResult[] = [];
   const rightDiffs: DiffResult[] = [];
   let summary = { additions: 0, deletions: 0, changes: 0 };
 
-  // Process each HTML element separately for more precise comparison
-  const maxLength = Math.max(leftStructure.length, rightStructure.length);
+  // Get all meaningful elements (paragraphs, headings, etc.)
+  const leftElements = extractMeaningfulElements(leftContainer);
+  const rightElements = extractMeaningfulElements(rightContainer);
+  
+  const maxLength = Math.max(leftElements.length, rightElements.length);
   
   for (let i = 0; i < maxLength; i++) {
-    const leftElement = leftStructure[i];
-    const rightElement = rightStructure[i];
+    const leftElement = leftElements[i];
+    const rightElement = rightElements[i];
     
     if (!leftElement && rightElement) {
       // Element added in right document
-      rightDiffs.push({ type: 'insert', content: rightElement.html });
+      rightDiffs.push({ type: 'insert', content: rightElement.outerHTML });
       leftDiffs.push({ type: 'equal', content: '' });
       summary.additions++;
     } else if (leftElement && !rightElement) {
       // Element removed from left document
-      leftDiffs.push({ type: 'delete', content: leftElement.html });
+      leftDiffs.push({ type: 'delete', content: leftElement.outerHTML });
       rightDiffs.push({ type: 'equal', content: '' });
       summary.deletions++;
     } else if (leftElement && rightElement) {
-      // Compare text content of elements at word level
-      if (leftElement.text === rightElement.text) {
+      const leftText = leftElement.textContent?.trim() || '';
+      const rightText = rightElement.textContent?.trim() || '';
+      
+      if (leftText === rightText) {
         // Same content, keep original HTML
-        leftDiffs.push({ type: 'equal', content: leftElement.html });
-        rightDiffs.push({ type: 'equal', content: rightElement.html });
+        leftDiffs.push({ type: 'equal', content: leftElement.outerHTML });
+        rightDiffs.push({ type: 'equal', content: rightElement.outerHTML });
       } else {
         // Different content, perform word-level diff
-        const wordDiffs = diffWords(leftElement.text, rightElement.text);
-        
-        const leftWordDiffs: string[] = [];
-        const rightWordDiffs: string[] = [];
-        
-        wordDiffs.forEach(diff => {
-          if (diff.added) {
-            rightWordDiffs.push(`<span class="diff-insert">${escapeHtml(diff.value)}</span>`);
-            summary.additions++;
-          } else if (diff.removed) {
-            leftWordDiffs.push(`<span class="diff-delete">${escapeHtml(diff.value)}</span>`);
-            summary.deletions++;
-          } else {
-            leftWordDiffs.push(escapeHtml(diff.value));
-            rightWordDiffs.push(escapeHtml(diff.value));
-          }
-        });
-        
-        // Reconstruct HTML with word-level highlighting
-        const leftHighlighted = reconstructElementWithDiffs(leftElement, leftWordDiffs.join(''));
-        const rightHighlighted = reconstructElementWithDiffs(rightElement, rightWordDiffs.join(''));
+        const { leftHighlighted, rightHighlighted, changes } = compareElementContent(leftElement, rightElement);
         
         leftDiffs.push({ type: 'equal', content: leftHighlighted });
         rightDiffs.push({ type: 'equal', content: rightHighlighted });
+        
+        summary.additions += changes.additions;
+        summary.deletions += changes.deletions;
       }
     }
   }
@@ -115,8 +103,87 @@ export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): Compa
   return { leftDiffs, rightDiffs, summary };
 };
 
-// Extract structured content preserving HTML elements
-const extractStructuredContent = (html: string): { text: string; html: string; tag: string }[] => {
+// Extract meaningful elements while preserving structure
+const extractMeaningfulElements = (container: Element): Element[] => {
+  const elements: Element[] = [];
+  
+  const traverse = (node: Node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element;
+      const tagName = element.tagName.toLowerCase();
+      
+      // Include meaningful block elements
+      if (isMeaningfulElement(tagName)) {
+        elements.push(element);
+      } else {
+        // Traverse children for non-meaningful containers
+        Array.from(node.childNodes).forEach(traverse);
+      }
+    }
+  };
+  
+  Array.from(container.childNodes).forEach(traverse);
+  return elements;
+};
+
+const isMeaningfulElement = (tagName: string): boolean => {
+  return [
+    'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+    'blockquote', 'pre', 'li', 'td', 'th',
+    'div' // Include divs that might contain formatted content
+  ].includes(tagName);
+};
+
+// Compare content within elements while preserving formatting
+const compareElementContent = (leftElement: Element, rightElement: Element) => {
+  const leftText = leftElement.textContent || '';
+  const rightText = rightElement.textContent || '';
+  
+  const wordDiffs = diffWords(leftText, rightText);
+  
+  let leftContent = '';
+  let rightContent = '';
+  let additions = 0;
+  let deletions = 0;
+  
+  wordDiffs.forEach(diff => {
+    if (diff.added) {
+      rightContent += `<span class="diff-insert">${escapeHtml(diff.value)}</span>`;
+      leftContent += ''; // Nothing added to left
+      additions++;
+    } else if (diff.removed) {
+      leftContent += `<span class="diff-delete">${escapeHtml(diff.value)}</span>`;
+      rightContent += ''; // Nothing added to right
+      deletions++;
+    } else {
+      const escapedContent = escapeHtml(diff.value);
+      leftContent += escapedContent;
+      rightContent += escapedContent;
+    }
+  });
+  
+  // Reconstruct elements with original structure but highlighted content
+  const leftHighlighted = reconstructElement(leftElement, leftContent);
+  const rightHighlighted = reconstructElement(rightElement, rightContent);
+  
+  return {
+    leftHighlighted,
+    rightHighlighted,
+    changes: { additions, deletions }
+  };
+};
+
+// Reconstruct element with new content while preserving attributes and structure
+const reconstructElement = (originalElement: Element, newContent: string): string => {
+  const tagName = originalElement.tagName.toLowerCase();
+  const attributes = Array.from(originalElement.attributes)
+    .map(attr => `${attr.name}="${attr.value}"`)
+    .join(' ');
+  
+  const attributeString = attributes ? ` ${attributes}` : '';
+  
+  return `<${tagName}${attributeString}>${newContent}</${tagName}>`;
+};
   const container = document.createElement('div');
   container.innerHTML = html;
 

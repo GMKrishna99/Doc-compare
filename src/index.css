@@ -8,6 +8,8 @@
   line-height: 1.6;
   color: #000;
   max-width: none;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .word-document-preview h1,
@@ -67,8 +69,19 @@
 
 .word-document-preview p {
   margin-bottom: 1em;
-  text-align: justify;
+  text-align: left;
   text-indent: 0;
+  white-space: pre-wrap;
+}
+
+/* Preserve original Word formatting */
+.word-document-preview * {
+  font-family: inherit;
+}
+
+.word-document-preview p:empty::before {
+  content: "\00a0";
+  display: inline-block;
 }
 
 .word-document-preview p.list-paragraph {
@@ -169,19 +182,23 @@
 
 /* Diff highlighting styles */
 .word-document-preview .diff-insert {
-  background-color: #d4edda;
-  color: #155724;
+  background-color: #d1ecf1;
+  color: #0c5460;
   padding: 2px 4px;
   border-radius: 3px;
   text-decoration: none;
+  font-weight: normal;
+  font-family: inherit;
 }
 
 .word-document-preview .diff-delete {
-  background-color: #f8d7da;
+  background-color: #f5c6cb;
   color: #721c24;
   padding: 2px 4px;
   border-radius: 3px;
   text-decoration: line-through;
+  font-weight: normal;
+  font-family: inherit;
 }
 
 .word-document-preview .diff-change {
@@ -193,7 +210,7 @@
 
 /* Block-level diff highlighting */
 .word-document-preview .diff-insert-block {
-  background-color: #d4edda;
+  background-color: #d1ecf1;
   border-left: 4px solid #28a745;
   padding: 8px;
   margin: 4px 0;
@@ -201,7 +218,7 @@
 }
 
 .word-document-preview .diff-delete-block {
-  background-color: #f8d7da;
+  background-color: #f5c6cb;
   border-left: 4px solid #dc3545;
   padding: 8px;
   margin: 4px 0;
@@ -209,24 +226,6 @@
   opacity: 0.8;
 }
 
-/* Improved inline diff styles */
-.word-document-preview .diff-insert {
-  background-color: #d1ecf1;
-  color: #0c5460;
-  padding: 1px 3px;
-  border-radius: 2px;
-  text-decoration: none;
-  font-weight: 500;
-}
-
-.word-document-preview .diff-delete {
-  background-color: #f5c6cb;
-  color: #721c24;
-  padding: 1px 3px;
-  border-radius: 2px;
-  text-decoration: line-through;
-  font-weight: 500;
-}
 /* Page-like appearance */
 .word-document-preview {
   background: white;
