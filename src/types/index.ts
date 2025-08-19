@@ -3,6 +3,7 @@ export interface DocumentData {
   name: string;
   content: string;
   htmlContent: string;
+  originalHtmlContent: string;
   file: File;
 }
 

@@ -27,6 +27,7 @@ export const useFileUpload = () => {
         name: file.name,
         content,
         htmlContent,
+        originalHtmlContent: htmlContent,
         file
       };
 

@@ -37,6 +37,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, label, uploadedFi
         name: file.name,
         content,
         htmlContent,
+        originalHtmlContent: enhancedHtml,
         file
       };
 
