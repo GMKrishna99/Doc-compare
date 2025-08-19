@@ -184,6 +184,8 @@ const reconstructElement = (originalElement: Element, newContent: string): strin
   
   return `<${tagName}${attributeString}>${newContent}</${tagName}>`;
 };
+
+const parseHtmlToElements = (html: string) => {
   const container = document.createElement('div');
   container.innerHTML = html;
 
