@@ -8,7 +8,7 @@ export interface DocumentData {
 }
 
 export interface DiffResult {
-  type: 'equal' | 'insert' | 'delete';
+  type: "equal" | "insert" | "delete";
   content: string;
 }
 

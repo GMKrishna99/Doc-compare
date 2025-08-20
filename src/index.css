@@ -196,7 +196,6 @@
   color: #721c24;
   padding: 2px 4px;
   border-radius: 3px;
-  text-decoration: line-through;
   font-weight: normal;
   font-family: inherit;
 }
@@ -269,7 +268,7 @@
 /* Page-like appearance */
 .word-document-preview {
   background: white;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   min-height: 11in;
   padding: 1in;
   margin: 0 auto;
