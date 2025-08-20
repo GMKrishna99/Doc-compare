@@ -21,11 +21,6 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, label, uploadedFi
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File size must be less than 10MB');
-      return;
-    }
-
     setError('');
     setIsProcessing(true);
 
@@ -112,7 +107,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, label, uploadedFi
             <p className="text-sm text-gray-600 mb-1">
               Drag and drop your Word document here, or click to browse
             </p>
-            <p className="text-xs text-gray-400">Supports .docx and .doc files (max 10MB)</p>
+            <p className="text-xs text-gray-400">Supports .docx and .doc files (no size limit)</p>
           </div>
         )}
 

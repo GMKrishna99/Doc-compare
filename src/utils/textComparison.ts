@@ -54,9 +54,9 @@ export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): Compa
   // Perform word-level comparison on plain text
   const diffs = diffWords(leftText, rightText);
   
-  // Create highlighted versions by applying diffs to original HTML
-  const leftHighlighted = applyDiffsToHtml(leftHtml, diffs, 'left');
-  const rightHighlighted = applyDiffsToHtml(rightHtml, diffs, 'right');
+  // Apply highlighting to original HTML while preserving all formatting
+  const leftHighlighted = applyDifferencesToHtml(leftHtml, diffs, 'left');
+  const rightHighlighted = applyDifferencesToHtml(rightHtml, diffs, 'right');
   
   // Calculate summary
   let summary = { additions: 0, deletions: 0, changes: 0 };
@@ -78,108 +78,128 @@ const extractTextFromHtml = (html: string): string => {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
   
-  // Get text content and normalize whitespace
+  // Get text content and normalize whitespace but preserve structure
   const text = tempDiv.textContent || '';
   return text.replace(/\s+/g, ' ').trim();
 };
 
-// Apply word-level diffs to original HTML structure
-const applyDiffsToHtml = (originalHtml: string, diffs: any[], side: 'left' | 'right'): string => {
+// Apply differences to HTML while preserving ALL original formatting
+const applyDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'left' | 'right'): string => {
+  // If no changes for this side, return original HTML unchanged
+  const hasChanges = diffs.some(diff => 
+    (side === 'left' && diff.removed) || (side === 'right' && diff.added)
+  );
+  
+  if (!hasChanges) {
+    return originalHtml;
+  }
+  
+  // Create a temporary container to work with the HTML
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = originalHtml;
   
-  // Get all text nodes
-  const textNodes = getTextNodes(tempDiv);
+  // Get all text nodes in the document
+  const textNodes = getAllTextNodes(tempDiv);
   
-  // Build diff text based on side
-  let diffText = '';
+  // Build the diff text for this side
+  let diffSegments: Array<{text: string, type: 'normal' | 'added' | 'removed'}> = [];
+  
   diffs.forEach(diff => {
     if (side === 'left') {
       if (diff.removed) {
-        diffText += `<span class="diff-delete">${escapeHtml(diff.value)}</span>`;
+        diffSegments.push({text: diff.value, type: 'removed'});
       } else if (!diff.added) {
-        diffText += escapeHtml(diff.value);
+        diffSegments.push({text: diff.value, type: 'normal'});
       }
     } else {
       if (diff.added) {
-        diffText += `<span class="diff-insert">${escapeHtml(diff.value)}</span>`;
+        diffSegments.push({text: diff.value, type: 'added'});
       } else if (!diff.removed) {
-        diffText += escapeHtml(diff.value);
+        diffSegments.push({text: diff.value, type: 'normal'});
       }
     }
   });
   
-  // If no changes, return original HTML
-  if (diffText === extractTextFromHtml(originalHtml)) {
-    return originalHtml;
-  }
+  // Apply highlighting to text nodes while preserving HTML structure
+  let segmentIndex = 0;
+  let segmentOffset = 0;
   
-  // Apply highlighting to the original structure
-  return applyHighlightingToStructure(originalHtml, diffText);
+  textNodes.forEach(textNode => {
+    const nodeText = textNode.textContent || '';
+    let newContent = '';
+    let nodeOffset = 0;
+    
+    while (nodeOffset < nodeText.length && segmentIndex < diffSegments.length) {
+      const segment = diffSegments[segmentIndex];
+      const remainingSegmentText = segment.text.substring(segmentOffset);
+      const remainingNodeText = nodeText.substring(nodeOffset);
+      
+      // Find how much of this segment fits in this text node
+      const matchLength = Math.min(remainingSegmentText.length, remainingNodeText.length);
+      const textToProcess = nodeText.substring(nodeOffset, nodeOffset + matchLength);
+      
+      // Apply highlighting based on segment type
+      if (segment.type === 'added') {
+        newContent += `<span class="diff-insert">${escapeHtml(textToProcess)}</span>`;
+      } else if (segment.type === 'removed') {
+        newContent += `<span class="diff-delete">${escapeHtml(textToProcess)}</span>`;
+      } else {
+        newContent += escapeHtml(textToProcess);
+      }
+      
+      nodeOffset += matchLength;
+      segmentOffset += matchLength;
+      
+      // Move to next segment if current one is complete
+      if (segmentOffset >= segment.text.length) {
+        segmentIndex++;
+        segmentOffset = 0;
+      }
+    }
+    
+    // Handle any remaining text in the node
+    if (nodeOffset < nodeText.length) {
+      newContent += escapeHtml(nodeText.substring(nodeOffset));
+    }
+    
+    // Replace the text node with highlighted content
+    if (newContent !== escapeHtml(nodeText)) {
+      const wrapper = document.createElement('span');
+      wrapper.innerHTML = newContent;
+      textNode.parentNode?.replaceChild(wrapper, textNode);
+    }
+  });
+  
+  return tempDiv.innerHTML;
 };
 
-// Get all text nodes from an element
-const getTextNodes = (element: Element): Text[] => {
+// Get all text nodes from an element recursively
+const getAllTextNodes = (element: Element): Text[] => {
   const textNodes: Text[] = [];
   const walker = document.createTreeWalker(
     element,
     NodeFilter.SHOW_TEXT,
-    null,
+    {
+      acceptNode: (node) => {
+        // Only include text nodes with actual content
+        return node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    },
     false
   );
   
   let node;
   while (node = walker.nextNode()) {
-    if (node.textContent?.trim()) {
-      textNodes.push(node as Text);
-    }
+    textNodes.push(node as Text);
   }
   
   return textNodes;
 };
 
-// Apply highlighting while preserving original HTML structure
-const applyHighlightingToStructure = (originalHtml: string, highlightedText: string): string => {
-  // For now, return a simple approach that preserves structure
-  // This is a complex operation that would require sophisticated HTML parsing
-  // to maintain exact formatting while applying word-level highlighting
-  
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = originalHtml;
-  
-  // Simple approach: if there are highlights, wrap the content
-  if (highlightedText.includes('diff-insert') || highlightedText.includes('diff-delete')) {
-    // Find the main content area and apply highlighting
-    const paragraphs = tempDiv.querySelectorAll('p, h1, h2, h3, h4, h5, h6, div');
-    
-    if (paragraphs.length > 0) {
-      // Apply highlighting to the first significant paragraph
-      const firstParagraph = paragraphs[0];
-      if (firstParagraph.textContent?.trim()) {
-        firstParagraph.innerHTML = highlightedText;
-      }
-    }
-  }
-  
-  return tempDiv.innerHTML;
-};
-
 // Render diffs where content is already HTML with word-level highlighting
 export const renderHtmlDifferences = (diffs: DiffResult[]): string => {
   return diffs.map(diff => {
-    switch (diff.type) {
-      case 'insert':
-        if (diff.content.startsWith('<') && diff.content.endsWith('>')) {
-          return `<div class="diff-insert-block">${diff.content}</div>`;
-        }
-        return `<span class="diff-insert">${diff.content}</span>`;
-      case 'delete':
-        if (diff.content.startsWith('<') && diff.content.endsWith('>')) {
-          return `<div class="diff-delete-block">${diff.content}</div>`;
-        }
-        return `<span class="diff-delete">${diff.content}</span>`;
-      default:
-        return diff.content;
-    }
+    // For HTML content, just return as-is since highlighting is already applied
+    return diff.content;
   }).join('');
 };

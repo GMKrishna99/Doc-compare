@@ -12,10 +12,6 @@ export const useFileUpload = () => {
       throw new Error('Please upload a valid Word document (.docx or .doc)');
     }
 
-    if (file.size > APP_CONFIG.maxFileSize) {
-      throw new Error(`File size must be less than ${APP_CONFIG.maxFileSize / (1024 * 1024)}MB`);
-    }
-
     setError('');
     setIsProcessing(true);
 

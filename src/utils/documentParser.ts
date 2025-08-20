@@ -116,20 +116,12 @@ const extractPlainTextWithStructure = (html: string): string => {
 const enhanceWordHtml = (html: string): string => {
   // Clean up and enhance HTML for better Word-like appearance
   let cleanedHtml = html
-    // Preserve line breaks and spacing
-    .replace(/\n\s*\n/g, '</p><p>')
-    // Ensure proper paragraph structure
-    .replace(/<p><\/p>/g, '<p>&nbsp;</p>')
-    // Fix empty paragraphs
-    .replace(/<p>\s*<\/p>/g, '<p>&nbsp;</p>');
+    // Preserve all original formatting and spacing
+    .replace(/<p><\/p>/g, '<p>&nbsp;</p>') // Only fix completely empty paragraphs
+    .replace(/<p>\s*<\/p>/g, '<p>&nbsp;</p>'); // Fix paragraphs with only whitespace
   
-  const styledHtml = `
-    <div class="word-document">
-      ${cleanedHtml}
-    </div>
-  `;
-  
-  return styledHtml;
+  // Return the HTML with minimal modifications to preserve original formatting
+  return cleanedHtml;
 };
 
 export const validateFile = (file: File): boolean => {

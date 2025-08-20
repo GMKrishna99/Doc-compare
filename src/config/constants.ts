@@ -1,7 +1,7 @@
 export const APP_CONFIG = {
   name: 'Word Document Comparison Tool',
   version: '1.0.0',
-  maxFileSize: 10 * 1024 * 1024, // 10MB
+  maxFileSize: Infinity, // No file size limit
   allowedExtensions: ['.docx', '.doc'],
   supportedMimeTypes: [
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

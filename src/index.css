@@ -182,8 +182,8 @@
 
 /* Diff highlighting styles */
 .word-document-preview .diff-insert {
-  background-color: #d1ecf1;
-  color: #0c5460;
+  background-color: #d4edda;
+  color: #155724;
   padding: 2px 4px;
   border-radius: 3px;
   text-decoration: none;
@@ -192,7 +192,7 @@
 }
 
 .word-document-preview .diff-delete {
-  background-color: #f5c6cb;
+  background-color: #f8d7da;
   color: #721c24;
   padding: 2px 4px;
   border-radius: 3px;
@@ -202,15 +202,15 @@
 }
 
 .word-document-preview .diff-change {
-  background-color: #fff3cd;
-  color: #856404;
+  background-color: #ffeaa7;
+  color: #6c5ce7;
   padding: 2px 4px;
   border-radius: 3px;
 }
 
 /* Block-level diff highlighting */
 .word-document-preview .diff-insert-block {
-  background-color: #d1ecf1;
+  background-color: #d4edda;
   border-left: 4px solid #28a745;
   padding: 8px;
   margin: 4px 0;
@@ -218,7 +218,7 @@
 }
 
 .word-document-preview .diff-delete-block {
-  background-color: #f5c6cb;
+  background-color: #f8d7da;
   border-left: 4px solid #dc3545;
   padding: 8px;
   margin: 4px 0;
