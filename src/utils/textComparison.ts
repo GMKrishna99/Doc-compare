@@ -47,30 +47,182 @@ const escapeHtml = (text: string): string => {
 };
 
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
-  // Extract plain text from HTML for comparison while preserving structure
+  // First, detect structural differences (images, tables, etc.)
+  const leftStructure = extractStructuralElements(leftHtml);
+  const rightStructure = extractStructuralElements(rightHtml);
+  
+  // Apply structural highlighting to both documents
+  const leftWithStructuralHighlights = applyStructuralHighlighting(leftHtml, leftStructure, rightStructure, 'left');
+  const rightWithStructuralHighlights = applyStructuralHighlighting(rightHtml, rightStructure, leftStructure, 'right');
+  
+  // Extract plain text from HTML for text comparison
   const leftText = extractTextFromHtml(leftHtml);
   const rightText = extractTextFromHtml(rightHtml);
   
   // Perform word-level comparison on plain text
-  const diffs = diffWords(leftText, rightText);
+  const textDiffs = diffWords(leftText, rightText);
   
-  // Apply highlighting to original HTML while preserving all formatting
-  const leftHighlighted = applyDifferencesToHtml(leftHtml, diffs, 'left');
-  const rightHighlighted = applyDifferencesToHtml(rightHtml, diffs, 'right');
+  // Apply text highlighting to documents that already have structural highlights
+  const leftFinal = applyTextDifferencesToHtml(leftWithStructuralHighlights, textDiffs, 'left');
+  const rightFinal = applyTextDifferencesToHtml(rightWithStructuralHighlights, textDiffs, 'right');
   
-  // Calculate summary
+  // Calculate summary including structural changes
   let summary = { additions: 0, deletions: 0, changes: 0 };
-  diffs.forEach(diff => {
+  
+  // Count text changes
+  textDiffs.forEach(diff => {
     if (diff.added) summary.additions++;
     if (diff.removed) summary.deletions++;
   });
+  
+  // Count structural changes
+  const structuralChanges = countStructuralChanges(leftStructure, rightStructure);
+  summary.additions += structuralChanges.additions;
+  summary.deletions += structuralChanges.deletions;
   summary.changes = summary.additions + summary.deletions;
   
   // Return as DiffResult arrays for consistency
-  const leftDiffs: DiffResult[] = [{ type: 'equal', content: leftHighlighted }];
-  const rightDiffs: DiffResult[] = [{ type: 'equal', content: rightHighlighted }];
+  const leftDiffs: DiffResult[] = [{ type: 'equal', content: leftFinal }];
+  const rightDiffs: DiffResult[] = [{ type: 'equal', content: rightFinal }];
   
   return { leftDiffs, rightDiffs, summary };
+};
+
+// Extract structural elements like images, tables, etc.
+const extractStructuralElements = (html: string) => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  const images = Array.from(tempDiv.querySelectorAll('img')).map((img, index) => ({
+    type: 'image',
+    index,
+    src: img.src,
+    alt: img.alt || '',
+    element: img.outerHTML,
+    id: `img-${index}-${img.src.substring(0, 20)}`
+  }));
+  
+  const tables = Array.from(tempDiv.querySelectorAll('table')).map((table, index) => ({
+    type: 'table',
+    index,
+    element: table.outerHTML,
+    id: `table-${index}-${table.textContent?.substring(0, 20) || ''}`
+  }));
+  
+  return { images, tables };
+};
+
+// Apply highlighting for structural changes (images, tables)
+const applyStructuralHighlighting = (html: string, ownStructure: any, otherStructure: any, side: 'left' | 'right') => {
+  let modifiedHtml = html;
+  
+  // Handle image differences
+  if (side === 'left') {
+    // Mark images that were removed (exist in left but not in right)
+    ownStructure.images.forEach((img: any) => {
+      const existsInRight = otherStructure.images.some((rightImg: any) => 
+        rightImg.src === img.src || rightImg.alt === img.alt
+      );
+      
+      if (!existsInRight) {
+        // Wrap removed image with deletion highlighting
+        const highlightedImg = `<div class="diff-delete-block">
+          <div class="removed-element-label">🖼️ Image Removed</div>
+          ${img.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(img.element, highlightedImg);
+      }
+    });
+  } else {
+    // Mark images that were added (exist in right but not in left)
+    ownStructure.images.forEach((img: any) => {
+      const existsInLeft = otherStructure.images.some((leftImg: any) => 
+        leftImg.src === img.src || leftImg.alt === img.alt
+      );
+      
+      if (!existsInLeft) {
+        // Wrap added image with insertion highlighting
+        const highlightedImg = `<div class="diff-insert-block">
+          <div class="added-element-label">🖼️ Image Added</div>
+          ${img.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(img.element, highlightedImg);
+      }
+    });
+  }
+  
+  // Handle table differences
+  if (side === 'left') {
+    // Mark tables that were removed
+    ownStructure.tables.forEach((table: any) => {
+      const existsInRight = otherStructure.tables.some((rightTable: any) => 
+        rightTable.element === table.element
+      );
+      
+      if (!existsInRight) {
+        const highlightedTable = `<div class="diff-delete-block">
+          <div class="removed-element-label">📊 Table Removed</div>
+          ${table.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(table.element, highlightedTable);
+      }
+    });
+  } else {
+    // Mark tables that were added
+    ownStructure.tables.forEach((table: any) => {
+      const existsInLeft = otherStructure.tables.some((leftTable: any) => 
+        leftTable.element === table.element
+      );
+      
+      if (!existsInLeft) {
+        const highlightedTable = `<div class="diff-insert-block">
+          <div class="added-element-label">📊 Table Added</div>
+          ${table.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(table.element, highlightedTable);
+      }
+    });
+  }
+  
+  return modifiedHtml;
+};
+
+// Count structural changes for summary
+const countStructuralChanges = (leftStructure: any, rightStructure: any) => {
+  let additions = 0;
+  let deletions = 0;
+  
+  // Count image changes
+  leftStructure.images.forEach((img: any) => {
+    const existsInRight = rightStructure.images.some((rightImg: any) => 
+      rightImg.src === img.src || rightImg.alt === img.alt
+    );
+    if (!existsInRight) deletions++;
+  });
+  
+  rightStructure.images.forEach((img: any) => {
+    const existsInLeft = leftStructure.images.some((leftImg: any) => 
+      leftImg.src === img.src || leftImg.alt === img.alt
+    );
+    if (!existsInLeft) additions++;
+  });
+  
+  // Count table changes
+  leftStructure.tables.forEach((table: any) => {
+    const existsInRight = rightStructure.tables.some((rightTable: any) => 
+      rightTable.element === table.element
+    );
+    if (!existsInRight) deletions++;
+  });
+  
+  rightStructure.tables.forEach((table: any) => {
+    const existsInLeft = leftStructure.tables.some((leftTable: any) => 
+      leftTable.element === table.element
+    );
+    if (!existsInLeft) additions++;
+  });
+  
+  return { additions, deletions };
 };
 
 // Extract plain text from HTML while preserving word boundaries
@@ -78,19 +230,22 @@ const extractTextFromHtml = (html: string): string => {
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = html;
   
+  // Remove images and tables from text extraction to avoid interference
+  tempDiv.querySelectorAll('img, table').forEach(el => el.remove());
+  
   // Get text content and normalize whitespace but preserve structure
   const text = tempDiv.textContent || '';
   return text.replace(/\s+/g, ' ').trim();
 };
 
-// Apply differences to HTML while preserving ALL original formatting
-const applyDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'left' | 'right'): string => {
-  // If no changes for this side, return original HTML unchanged
-  const hasChanges = diffs.some(diff => 
+// Apply text differences to HTML while preserving ALL original formatting
+const applyTextDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'left' | 'right'): string => {
+  // If no text changes for this side, return original HTML unchanged
+  const hasTextChanges = diffs.some(diff => 
     (side === 'left' && diff.removed) || (side === 'right' && diff.added)
   );
   
-  if (!hasChanges) {
+  if (!hasTextChanges) {
     return originalHtml;
   }
   
@@ -98,7 +253,7 @@ const applyDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'left'
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = originalHtml;
   
-  // Get all text nodes in the document
+  // Get all text nodes in the document (excluding those in images and tables)
   const textNodes = getAllTextNodes(tempDiv);
   
   // Build the diff text for this side
@@ -173,7 +328,7 @@ const applyDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'left'
   return tempDiv.innerHTML;
 };
 
-// Get all text nodes from an element recursively
+// Get all text nodes from an element recursively (excluding images and tables)
 const getAllTextNodes = (element: Element): Text[] => {
   const textNodes: Text[] = [];
   const walker = document.createTreeWalker(
@@ -181,6 +336,12 @@ const getAllTextNodes = (element: Element): Text[] => {
     NodeFilter.SHOW_TEXT,
     {
       acceptNode: (node) => {
+        // Skip text nodes inside images, tables, or diff blocks
+        const parent = node.parentElement;
+        if (parent?.closest('img, table, .diff-insert-block, .diff-delete-block')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        
         // Only include text nodes with actual content
         return node.textContent?.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
       }

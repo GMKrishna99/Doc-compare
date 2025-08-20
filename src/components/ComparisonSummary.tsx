@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Minus, BarChart3, Download } from 'lucide-react';
+import { Plus, Minus, BarChart3, Download, Image, Table } from 'lucide-react';
 import { ComparisonResult } from '../types';
 
 interface ComparisonSummaryProps {
@@ -51,6 +51,20 @@ const ComparisonSummary: React.FC<ComparisonSummaryProps> = ({ comparison, onExp
           <div className="text-2xl font-bold text-blue-800">{summary.changes}</div>
         </div>
       </div>
+
+      {(summary.additions > 0 || summary.deletions > 0) && (
+        <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center gap-2 text-blue-700 text-sm">
+            <Image className="h-4 w-4" />
+            <span className="font-medium">Changes detected include:</span>
+          </div>
+          <div className="mt-2 text-sm text-blue-600">
+            <p>• Text modifications, additions, and deletions</p>
+            <p>• Image additions and removals</p>
+            <p>• Table structure changes</p>
+          </div>
+        </div>
+      )}
 
       {summary.changes === 0 && (
         <div className="mt-4 p-4 bg-gray-50 rounded-lg text-center">

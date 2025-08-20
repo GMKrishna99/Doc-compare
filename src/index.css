@@ -226,6 +226,46 @@
   opacity: 0.8;
 }
 
+/* Labels for removed/added elements */
+.word-document-preview .removed-element-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #721c24;
+  background-color: #f5c6cb;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+.word-document-preview .added-element-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #155724;
+  background-color: #c3e6cb;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  display: inline-block;
+}
+
+/* Ensure images in diff blocks maintain their original styling */
+.word-document-preview .diff-insert-block img,
+.word-document-preview .diff-delete-block img {
+  max-width: 100%;
+  height: auto;
+  margin: 8px 0;
+  display: block;
+}
+
+/* Ensure tables in diff blocks maintain their original styling */
+.word-document-preview .diff-insert-block table,
+.word-document-preview .diff-delete-block table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
 /* Page-like appearance */
 .word-document-preview {
   background: white;
