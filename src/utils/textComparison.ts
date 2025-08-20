@@ -47,272 +47,26 @@ const escapeHtml = (text: string): string => {
 };
 
 export const compareHtmlDocuments = (leftHtml: string, rightHtml: string): ComparisonResult => {
-  // Comprehensive element extraction and comparison
-  const leftElements = extractAllElements(leftHtml);
-  const rightElements = extractAllElements(rightHtml);
+  // First, detect structural differences (images, tables, etc.)
+  const leftStructure = extractStructuralElements(leftHtml);
+  const rightStructure = extractStructuralElements(rightHtml);
   
-  // Apply comprehensive highlighting to both documents
-  const leftWithHighlights = applyComprehensiveHighlighting(leftHtml, leftElements, rightElements, 'left');
-  const rightWithHighlights = applyComprehensiveHighlighting(rightHtml, rightElements, leftElements, 'right');
+  // Apply structural highlighting to both documents
+  const leftWithStructuralHighlights = applyStructuralHighlighting(leftHtml, leftStructure, rightStructure, 'left');
+  const rightWithStructuralHighlights = applyStructuralHighlighting(rightHtml, rightStructure, leftStructure, 'right');
   
-  // Extract plain text for text-level comparison
+  // Extract plain text from HTML for text comparison
   const leftText = extractTextFromHtml(leftHtml);
   const rightText = extractTextFromHtml(rightHtml);
   
   // Perform word-level comparison on plain text
   const textDiffs = diffWords(leftText, rightText);
   
-  // Apply text highlighting while preserving all structural highlights
-  const leftFinal = applyTextDifferencesToHtml(leftWithHighlights, textDiffs, 'left');
-  const rightFinal = applyTextDifferencesToHtml(rightWithHighlights, textDiffs, 'right');
+  // Apply text highlighting to documents that already have structural highlights
+  const leftFinal = applyTextDifferencesToHtml(leftWithStructuralHighlights, textDiffs, 'left');
+  const rightFinal = applyTextDifferencesToHtml(rightWithStructuralHighlights, textDiffs, 'right');
   
-  // Calculate comprehensive summary
-  const summary = calculateComprehensiveSummary(textDiffs, leftElements, rightElements);
-  
-  // Return as DiffResult arrays for consistency
-  const leftDiffs: DiffResult[] = [{ type: 'equal', content: leftFinal }];
-  const rightDiffs: DiffResult[] = [{ type: 'equal', content: rightFinal }];
-  
-  return { leftDiffs, rightDiffs, summary };
-};
-
-// Extract ALL elements from HTML document
-const extractAllElements = (html: string) => {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-  
-  // Images
-  const images = Array.from(tempDiv.querySelectorAll('img')).map((img, index) => ({
-    type: 'image',
-    index,
-    src: img.src,
-    alt: img.alt || '',
-    width: img.width || null,
-    height: img.height || null,
-    element: img.outerHTML,
-    id: `img-${index}-${(img.src || img.alt || '').substring(0, 20)}`
-  }));
-  
-  // Tables
-  const tables = Array.from(tempDiv.querySelectorAll('table')).map((table, index) => ({
-    type: 'table',
-    index,
-    rows: table.querySelectorAll('tr').length,
-    cols: table.querySelector('tr')?.querySelectorAll('td, th').length || 0,
-    element: table.outerHTML,
-    id: `table-${index}-${table.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Headers (h1-h6)
-  const headers = Array.from(tempDiv.querySelectorAll('h1, h2, h3, h4, h5, h6')).map((header, index) => ({
-    type: 'header',
-    level: parseInt(header.tagName.substring(1)),
-    text: header.textContent || '',
-    element: header.outerHTML,
-    id: `header-${index}-${header.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Lists (ul, ol)
-  const lists = Array.from(tempDiv.querySelectorAll('ul, ol')).map((list, index) => ({
-    type: 'list',
-    listType: list.tagName.toLowerCase(),
-    items: list.querySelectorAll('li').length,
-    element: list.outerHTML,
-    id: `list-${index}-${list.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Links
-  const links = Array.from(tempDiv.querySelectorAll('a')).map((link, index) => ({
-    type: 'link',
-    href: link.href || '',
-    text: link.textContent || '',
-    element: link.outerHTML,
-    id: `link-${index}-${(link.textContent || link.href || '').substring(0, 20)}`
-  }));
-  
-  // Blockquotes
-  const blockquotes = Array.from(tempDiv.querySelectorAll('blockquote')).map((quote, index) => ({
-    type: 'blockquote',
-    text: quote.textContent || '',
-    element: quote.outerHTML,
-    id: `quote-${index}-${quote.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Code blocks and inline code
-  const codeBlocks = Array.from(tempDiv.querySelectorAll('pre, code')).map((code, index) => ({
-    type: 'code',
-    isBlock: code.tagName.toLowerCase() === 'pre',
-    text: code.textContent || '',
-    element: code.outerHTML,
-    id: `code-${index}-${code.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Formatted text (bold, italic, underline)
-  const formattedText = Array.from(tempDiv.querySelectorAll('strong, b, em, i, u')).map((elem, index) => ({
-    type: 'formatted',
-    format: elem.tagName.toLowerCase(),
-    text: elem.textContent || '',
-    element: elem.outerHTML,
-    id: `format-${index}-${elem.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  // Line breaks and spacing
-  const breaks = Array.from(tempDiv.querySelectorAll('br')).map((br, index) => ({
-    type: 'break',
-    element: br.outerHTML,
-    id: `br-${index}`
-  }));
-  
-  // Divs and spans with specific styling
-  const styledElements = Array.from(tempDiv.querySelectorAll('div[style], span[style], p[style]')).map((elem, index) => ({
-    type: 'styled',
-    tagName: elem.tagName.toLowerCase(),
-    style: elem.getAttribute('style') || '',
-    text: elem.textContent || '',
-    element: elem.outerHTML,
-    id: `styled-${index}-${elem.textContent?.substring(0, 20) || ''}`
-  }));
-  
-  return {
-    images,
-    tables,
-    headers,
-    lists,
-    links,
-    blockquotes,
-    codeBlocks,
-    formattedText,
-    breaks,
-    styledElements
-  };
-};
-
-// Apply comprehensive highlighting for ALL element types
-const applyComprehensiveHighlighting = (html: string, ownElements: any, otherElements: any, side: 'left' | 'right') => {
-  let modifiedHtml = html;
-  
-  // Helper function to check if element exists in other document
-  const elementExistsInOther = (element: any, otherElementsOfType: any[]) => {
-    switch (element.type) {
-      case 'image':
-        return otherElementsOfType.some(other => 
-          other.src === element.src || 
-          (other.alt === element.alt && element.alt) ||
-          other.element === element.element
-        );
-      case 'table':
-        return otherElementsOfType.some(other => 
-          other.element === element.element ||
-          (other.rows === element.rows && other.cols === element.cols && 
-           Math.abs(other.id.localeCompare(element.id)) < 5)
-        );
-      case 'header':
-        return otherElementsOfType.some(other => 
-          other.text === element.text && other.level === element.level
-        );
-      case 'list':
-        return otherElementsOfType.some(other => 
-          other.element === element.element ||
-          (other.listType === element.listType && other.items === element.items)
-        );
-      case 'link':
-        return otherElementsOfType.some(other => 
-          other.href === element.href && other.text === element.text
-        );
-      case 'blockquote':
-        return otherElementsOfType.some(other => 
-          other.text === element.text
-        );
-      case 'code':
-        return otherElementsOfType.some(other => 
-          other.text === element.text && other.isBlock === element.isBlock
-        );
-      case 'formatted':
-        return otherElementsOfType.some(other => 
-          other.text === element.text && other.format === element.format
-        );
-      case 'styled':
-        return otherElementsOfType.some(other => 
-          other.element === element.element ||
-          (other.style === element.style && other.text === element.text)
-        );
-      default:
-        return otherElementsOfType.some(other => other.element === element.element);
-    }
-  };
-  
-  // Process each element type
-  const elementTypes = ['images', 'tables', 'headers', 'lists', 'links', 'blockquotes', 'codeBlocks', 'formattedText', 'styledElements'];
-  
-  elementTypes.forEach(elementType => {
-    const elements = ownElements[elementType] || [];
-    const otherElementsOfType = otherElements[elementType] || [];
-    
-    elements.forEach((element: any) => {
-      const exists = elementExistsInOther(element, otherElementsOfType);
-      
-      if (!exists) {
-        const isRemoval = side === 'left';
-        const isAddition = side === 'right';
-        
-        if (isRemoval) {
-          // Element was removed
-          const highlightedElement = `<div class="diff-delete-block">
-            <div class="removed-element-label">${getElementIcon(element.type)} ${getElementLabel(element.type)} Removed</div>
-            ${element.element}
-          </div>`;
-          modifiedHtml = modifiedHtml.replace(element.element, highlightedElement);
-        } else if (isAddition) {
-          // Element was added
-          const highlightedElement = `<div class="diff-insert-block">
-            <div class="added-element-label">${getElementIcon(element.type)} ${getElementLabel(element.type)} Added</div>
-            ${element.element}
-          </div>`;
-          modifiedHtml = modifiedHtml.replace(element.element, highlightedElement);
-        }
-      }
-    });
-  });
-  
-  return modifiedHtml;
-};
-
-// Get appropriate icon for element type
-const getElementIcon = (type: string): string => {
-  const icons: { [key: string]: string } = {
-    image: '🖼️',
-    table: '📊',
-    header: '📝',
-    list: '📋',
-    link: '🔗',
-    blockquote: '💬',
-    code: '💻',
-    formatted: '✨',
-    styled: '🎨',
-    break: '↵'
-  };
-  return icons[type] || '📄';
-};
-
-// Get appropriate label for element type
-const getElementLabel = (type: string): string => {
-  const labels: { [key: string]: string } = {
-    image: 'Image',
-    table: 'Table',
-    header: 'Header',
-    list: 'List',
-    link: 'Link',
-    blockquote: 'Quote',
-    code: 'Code',
-    formatted: 'Formatting',
-    styled: 'Style',
-    break: 'Line Break'
-  };
-  return labels[type] || 'Element';
-};
-
-// Calculate comprehensive summary including all element types
-const calculateComprehensiveSummary = (textDiffs: any[], leftElements: any, rightElements: any) => {
+  // Calculate summary including structural changes
   let summary = { additions: 0, deletions: 0, changes: 0 };
   
   // Count text changes
@@ -321,50 +75,154 @@ const calculateComprehensiveSummary = (textDiffs: any[], leftElements: any, righ
     if (diff.removed) summary.deletions++;
   });
   
-  // Count structural changes for all element types
-  const elementTypes = ['images', 'tables', 'headers', 'lists', 'links', 'blockquotes', 'codeBlocks', 'formattedText', 'styledElements'];
+  // Count structural changes
+  const structuralChanges = countStructuralChanges(leftStructure, rightStructure);
+  summary.additions += structuralChanges.additions;
+  summary.deletions += structuralChanges.deletions;
+  summary.changes = summary.additions + summary.deletions;
   
-  elementTypes.forEach(elementType => {
-    const leftElementsOfType = leftElements[elementType] || [];
-    const rightElementsOfType = rightElements[elementType] || [];
-    
-    // Count deletions (exist in left but not in right)
-    leftElementsOfType.forEach((element: any) => {
-      const existsInRight = rightElementsOfType.some((rightElement: any) => {
-        switch (element.type) {
-          case 'image':
-            return rightElement.src === element.src || rightElement.alt === element.alt;
-          case 'header':
-            return rightElement.text === element.text && rightElement.level === element.level;
-          case 'link':
-            return rightElement.href === element.href && rightElement.text === element.text;
-          default:
-            return rightElement.element === element.element;
-        }
-      });
-      if (!existsInRight) summary.deletions++;
+  // Return as DiffResult arrays for consistency
+  const leftDiffs: DiffResult[] = [{ type: 'equal', content: leftFinal }];
+  const rightDiffs: DiffResult[] = [{ type: 'equal', content: rightFinal }];
+  
+  return { leftDiffs, rightDiffs, summary };
+};
+
+// Extract structural elements like images, tables, etc.
+const extractStructuralElements = (html: string) => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  const images = Array.from(tempDiv.querySelectorAll('img')).map((img, index) => ({
+    type: 'image',
+    index,
+    src: img.src,
+    alt: img.alt || '',
+    element: img.outerHTML,
+    id: `img-${index}-${img.src.substring(0, 20)}`
+  }));
+  
+  const tables = Array.from(tempDiv.querySelectorAll('table')).map((table, index) => ({
+    type: 'table',
+    index,
+    element: table.outerHTML,
+    id: `table-${index}-${table.textContent?.substring(0, 20) || ''}`
+  }));
+  
+  return { images, tables };
+};
+
+// Apply highlighting for structural changes (images, tables)
+const applyStructuralHighlighting = (html: string, ownStructure: any, otherStructure: any, side: 'left' | 'right') => {
+  let modifiedHtml = html;
+  
+  // Handle image differences
+  if (side === 'left') {
+    // Mark images that were removed (exist in left but not in right)
+    ownStructure.images.forEach((img: any) => {
+      const existsInRight = otherStructure.images.some((rightImg: any) => 
+        rightImg.src === img.src || rightImg.alt === img.alt
+      );
+      
+      if (!existsInRight) {
+        // Wrap removed image with deletion highlighting
+        const highlightedImg = `<div class="diff-delete-block">
+          <div class="removed-element-label">🖼️ Image Removed</div>
+          ${img.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(img.element, highlightedImg);
+      }
     });
-    
-    // Count additions (exist in right but not in left)
-    rightElementsOfType.forEach((element: any) => {
-      const existsInLeft = leftElementsOfType.some((leftElement: any) => {
-        switch (element.type) {
-          case 'image':
-            return leftElement.src === element.src || leftElement.alt === element.alt;
-          case 'header':
-            return leftElement.text === element.text && leftElement.level === element.level;
-          case 'link':
-            return leftElement.href === element.href && leftElement.text === element.text;
-          default:
-            return leftElement.element === element.element;
-        }
-      });
-      if (!existsInLeft) summary.additions++;
+  } else {
+    // Mark images that were added (exist in right but not in left)
+    ownStructure.images.forEach((img: any) => {
+      const existsInLeft = otherStructure.images.some((leftImg: any) => 
+        leftImg.src === img.src || leftImg.alt === img.alt
+      );
+      
+      if (!existsInLeft) {
+        // Wrap added image with insertion highlighting
+        const highlightedImg = `<div class="diff-insert-block">
+          <div class="added-element-label">🖼️ Image Added</div>
+          ${img.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(img.element, highlightedImg);
+      }
     });
+  }
+  
+  // Handle table differences
+  if (side === 'left') {
+    // Mark tables that were removed
+    ownStructure.tables.forEach((table: any) => {
+      const existsInRight = otherStructure.tables.some((rightTable: any) => 
+        rightTable.element === table.element
+      );
+      
+      if (!existsInRight) {
+        const highlightedTable = `<div class="diff-delete-block">
+          <div class="removed-element-label">📊 Table Removed</div>
+          ${table.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(table.element, highlightedTable);
+      }
+    });
+  } else {
+    // Mark tables that were added
+    ownStructure.tables.forEach((table: any) => {
+      const existsInLeft = otherStructure.tables.some((leftTable: any) => 
+        leftTable.element === table.element
+      );
+      
+      if (!existsInLeft) {
+        const highlightedTable = `<div class="diff-insert-block">
+          <div class="added-element-label">📊 Table Added</div>
+          ${table.element}
+        </div>`;
+        modifiedHtml = modifiedHtml.replace(table.element, highlightedTable);
+      }
+    });
+  }
+  
+  return modifiedHtml;
+};
+
+// Count structural changes for summary
+const countStructuralChanges = (leftStructure: any, rightStructure: any) => {
+  let additions = 0;
+  let deletions = 0;
+  
+  // Count image changes
+  leftStructure.images.forEach((img: any) => {
+    const existsInRight = rightStructure.images.some((rightImg: any) => 
+      rightImg.src === img.src || rightImg.alt === img.alt
+    );
+    if (!existsInRight) deletions++;
   });
   
-  summary.changes = summary.additions + summary.deletions;
-  return summary;
+  rightStructure.images.forEach((img: any) => {
+    const existsInLeft = leftStructure.images.some((leftImg: any) => 
+      leftImg.src === img.src || leftImg.alt === img.alt
+    );
+    if (!existsInLeft) additions++;
+  });
+  
+  // Count table changes
+  leftStructure.tables.forEach((table: any) => {
+    const existsInRight = rightStructure.tables.some((rightTable: any) => 
+      rightTable.element === table.element
+    );
+    if (!existsInRight) deletions++;
+  });
+  
+  rightStructure.tables.forEach((table: any) => {
+    const existsInLeft = leftStructure.tables.some((leftTable: any) => 
+      leftTable.element === table.element
+    );
+    if (!existsInLeft) additions++;
+  });
+  
+  return { additions, deletions };
 };
 
 // Extract plain text from HTML while preserving word boundaries
@@ -395,7 +253,7 @@ const applyTextDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'l
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = originalHtml;
   
-  // Get all text nodes in the document (excluding those in highlighted blocks)
+  // Get all text nodes in the document (excluding those in images and tables)
   const textNodes = getAllTextNodes(tempDiv);
   
   // Build the diff text for this side
@@ -470,7 +328,7 @@ const applyTextDifferencesToHtml = (originalHtml: string, diffs: any[], side: 'l
   return tempDiv.innerHTML;
 };
 
-// Get all text nodes from an element recursively (excluding highlighted blocks)
+// Get all text nodes from an element recursively (excluding images and tables)
 const getAllTextNodes = (element: Element): Text[] => {
   const textNodes: Text[] = [];
   const walker = document.createTreeWalker(
@@ -499,7 +357,7 @@ const getAllTextNodes = (element: Element): Text[] => {
   return textNodes;
 };
 
-// Render diffs where content is already HTML with comprehensive highlighting
+// Render diffs where content is already HTML with word-level highlighting
 export const renderHtmlDifferences = (diffs: DiffResult[]): string => {
   return diffs.map(diff => {
     // For HTML content, just return as-is since highlighting is already applied
