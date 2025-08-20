@@ -266,6 +266,80 @@
   margin: 8px 0;
 }
 
+/* Ensure all elements in diff blocks maintain their original styling */
+.word-document-preview .diff-insert-block *,
+.word-document-preview .diff-delete-block * {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  text-decoration: inherit;
+  margin: inherit;
+  padding: inherit;
+}
+
+/* Headers in diff blocks */
+.word-document-preview .diff-insert-block h1,
+.word-document-preview .diff-insert-block h2,
+.word-document-preview .diff-insert-block h3,
+.word-document-preview .diff-insert-block h4,
+.word-document-preview .diff-insert-block h5,
+.word-document-preview .diff-insert-block h6,
+.word-document-preview .diff-delete-block h1,
+.word-document-preview .diff-delete-block h2,
+.word-document-preview .diff-delete-block h3,
+.word-document-preview .diff-delete-block h4,
+.word-document-preview .diff-delete-block h5,
+.word-document-preview .diff-delete-block h6 {
+  font-weight: bold;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+/* Lists in diff blocks */
+.word-document-preview .diff-insert-block ul,
+.word-document-preview .diff-insert-block ol,
+.word-document-preview .diff-delete-block ul,
+.word-document-preview .diff-delete-block ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+/* Links in diff blocks */
+.word-document-preview .diff-insert-block a,
+.word-document-preview .diff-delete-block a {
+  color: #0066cc;
+  text-decoration: underline;
+}
+
+/* Blockquotes in diff blocks */
+.word-document-preview .diff-insert-block blockquote,
+.word-document-preview .diff-delete-block blockquote {
+  margin: 1.5em 2em;
+  padding: 1em;
+  border-left: 4px solid #ccc;
+  background-color: #f9f9f9;
+  font-style: italic;
+}
+
+/* Code blocks in diff blocks */
+.word-document-preview .diff-insert-block pre,
+.word-document-preview .diff-delete-block pre {
+  font-family: 'Courier New', monospace;
+  background-color: #f5f5f5;
+  padding: 1em;
+  border: 1px solid #ddd;
+  overflow-x: auto;
+  margin: 1em 0;
+}
+
+.word-document-preview .diff-insert-block code,
+.word-document-preview .diff-delete-block code {
+  font-family: 'Courier New', monospace;
+  background-color: #f5f5f5;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+}
 /* Page-like appearance */
 .word-document-preview {
   background: white;

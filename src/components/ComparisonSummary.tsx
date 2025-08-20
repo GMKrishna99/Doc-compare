@@ -62,6 +62,12 @@ const ComparisonSummary: React.FC<ComparisonSummaryProps> = ({ comparison, onExp
             <p>• Text modifications, additions, and deletions</p>
             <p>• Image additions and removals</p>
             <p>• Table structure changes</p>
+            <p>• Header and formatting changes</p>
+            <p>• List modifications</p>
+            <p>• Link changes</p>
+            <p>• Style and layout modifications</p>
+            <p>• Code block changes</p>
+            <p>• Quote and emphasis changes</p>
           </div>
         </div>
       )}
